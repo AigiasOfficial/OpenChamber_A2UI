@@ -755,13 +755,18 @@ export function CognitiveMapCanvas({
                   ))}
                 </defs>
 
-                {layout.edges.map(({ edge, path, isFeedback }) => {
+                {layout.edges.map(({ edge, path, midX, midY, isFeedback }) => {
                   const isActive = edge.id === selectedEdgeId || edge.id === hoveredEdgeId;
                   const dimmed = !isActive && isEdgeDimmed(edge);
                   const stroke = edgeStrokeColor(edge.sign);
                   const markerKey = edge.sign === '+' ? 'pos' : edge.sign === '-' ? 'neg' : 'unc';
+                  const hoverHandlers = {
+                    onClick: () => selectEdge(edge.id),
+                    onPointerEnter: () => setHoveredEdgeId(edge.id),
+                    onPointerLeave: () => setHoveredEdgeId((prev) => (prev === edge.id ? null : prev)),
+                  };
                   return (
-                    <g key={edge.id} opacity={dimmed ? 0.16 : isActive ? 1 : 0.85}>
+                    <g key={edge.id} opacity={dimmed ? 0.16 : isActive ? 1 : 0.92}>
                       <path
                         d={path}
                         fill="none"
@@ -782,6 +787,19 @@ export function CognitiveMapCanvas({
                         onPointerEnter={() => setHoveredEdgeId(edge.id)}
                         onPointerLeave={() => setHoveredEdgeId((prev) => (prev === edge.id ? null : prev))}
                       />
+                      {/* Quiet in-line badge + label; sits under the cards. The hovered/selected
+                          link gets a readable copy in the overlay above the cards instead. */}
+                      <g data-cogmap-edge={edge.id} opacity={isActive ? 0 : 1} style={{ pointerEvents: 'all', cursor: 'pointer' }} {...hoverHandlers}>
+                        <circle cx={midX} cy={midY} r={9} fill="var(--background)" stroke={stroke} strokeWidth={1.3} />
+                        <text x={midX} y={midY + 3.5} textAnchor="middle" fontSize="11" fontWeight="700" fill={stroke}>
+                          {signGlyph(edge.sign)}
+                        </text>
+                        {edge.label && (
+                          <text x={midX} y={midY - 12} textAnchor="middle" fontSize="9.5" fill="var(--muted-foreground)">
+                            {edge.label}
+                          </text>
+                        )}
+                      </g>
                     </g>
                   );
                 })}
@@ -866,10 +884,10 @@ export function CognitiveMapCanvas({
                 );
               })}
 
-              {/* Edge badges & labels render ABOVE the cards so link text is never hidden. */}
+              {/* Only the hovered/selected link is lifted above the cards so its full text is readable. */}
               {layout.edges.map(({ edge, midX, midY }) => {
                 const isActive = edge.id === selectedEdgeId || edge.id === hoveredEdgeId;
-                const dimmed = !isActive && isEdgeDimmed(edge);
+                if (!isActive) return null;
                 const stroke = edgeStrokeColor(edge.sign);
                 return (
                   <button
@@ -884,8 +902,7 @@ export function CognitiveMapCanvas({
                       left: midX,
                       top: midY,
                       borderColor: stroke,
-                      zIndex: isActive ? 30 : 20,
-                      opacity: dimmed ? 0.22 : 1,
+                      zIndex: 30,
                     }}
                     className={cn(
                       'absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border bg-background px-1.5 py-0.5 text-start shadow-xs transition-[opacity,box-shadow]',
